@@ -12,4 +12,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
   <Import Project="..\..\GameReferences.props" />
+  <ItemGroup>
+    <Reference Include="$(BepInExDir)\core\Iced.dll" Private="false" />
+  </ItemGroup>
 </Project>

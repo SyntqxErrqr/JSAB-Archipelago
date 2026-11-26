@@ -56,6 +56,24 @@ internal static class ArchipelagoController
 
     public static bool GoalSongOpen => Slot != null && BeatShards >= Slot.BeatShardsRequired;
 
+    public static bool HasDash => ForcedDash ?? (Slot == null || Slot.StartWithDash || Count(Slot.ItemDash) > 0);
+
+    /// <summary>Debug override for <see cref="HasDash"/>, set with the force-dash command.</summary>
+    public static bool? ForcedDash;
+
+    /// <summary>Whether the player may dash right now. Always true without a slot loaded.</summary>
+    public static bool MayDash => !Active || HasDash;
+
+    private static float _lastDashMessage = -999f;
+
+    /// <summary>The player pressed dash without having Dash. Says so, at most every few seconds.</summary>
+    public static void OnDashBlocked()
+    {
+        if (UnityEngine.Time.unscaledTime - _lastDashMessage < 6f) return;
+        _lastDashMessage = UnityEngine.Time.unscaledTime;
+        Messages.Add("You can't dash yet: Dash hasn't been found.");
+    }
+
     public static bool IsChapterUnlocked(int chapter)
     {
         if (Slot == null) return true;
@@ -222,6 +240,8 @@ internal static class ArchipelagoController
             Messages.Add("You have enough Beat Shards: the goal song is open!");
         if (item.ItemId == Slot.ItemProgressiveChapter)
             Messages.Add($"{Slot.ChapterName(ProgressiveChapters)} is now open.");
+        if (item.ItemId == Slot.ItemDash && !Slot.StartWithDash)
+            Messages.Add("You can dash now!");
         WriteSave();
     }
 
@@ -270,11 +290,37 @@ internal static class ArchipelagoController
         PendingResyncs.Add(UnityEngine.Time.unscaledTime + 8f);
     }
 
+    /// <summary>
+    /// The tutorial started scene <paramref name="scene"/> (0-8) because the player collected a triangle: collecting
+    /// the first triangle starts scene 0. The triangle after the last scene ends the level and is its clear.
+    /// </summary>
+    public static void OnTutorialScene(int scene)
+    {
+        if (!Active || Slot == null || Save == null || !Slot.IsStory || Slot.TutorialCheckpoints <= 0) return;
+        int trianglesCollected = scene + 1;
+        Plugin.Logger.LogInfo($"Tutorial scene {scene} (triangle {trianglesCollected})");
+        int reached = Math.Min(trianglesCollected, Slot.TutorialCheckpoints);
+        if (reached > Save.TutorialCheckpointsReached)
+        {
+            Save.TutorialCheckpointsReached = reached;
+            WriteSave();
+        }
+        SendTutorialCheckpoints();
+    }
+
+    private static void SendTutorialCheckpoints()
+    {
+        if (Slot == null || Save == null) return;
+        var ids = new List<long?>();
+        for (int n = 1; n <= Save.TutorialCheckpointsReached; n++) ids.Add(Slot.TutorialCheckpointBase + n);
+        SendLocations(ids);
+    }
+
     /// <summary>A level was cleared in Story mode.</summary>
     private static void OnStoryCompleted(string? gameId)
     {
         if (Slot == null || Save == null || gameId == null || !Slot.IsStory) return;
-        if (GameBridge.CurrentDifficulty < Slot.MinimumDifficulty)
+        if (GameBridge.CurrentDifficulty < Slot.MinimumDifficulty && !Slot.DifficultyExempt.Contains(gameId))
         {
             Messages.Add("Cleared below the minimum difficulty, so it doesn't count.");
             return;
@@ -328,7 +374,8 @@ internal static class ArchipelagoController
             // The game's story save doesn't record the difficulty a level was cleared on, so above Normal only clears
             // the mod saw being played on a high enough difficulty count.
             if (Slot.IsStory && GameBridge.IsStoryCompleted(gameId) &&
-                (Slot.MinimumDifficulty <= 1 || Save!.StoryClears.Contains(gameId)))
+                (Slot.MinimumDifficulty <= 1 || Slot.DifficultyExempt.Contains(gameId) ||
+                 Save!.StoryClears.Contains(gameId)))
                 ids.Add(Slot.ClearLocation(gameId));
             if (!Slot.IsStory && !IsPlaylistSongUnlocked(gameId)) continue;
             foreach (var (difficulty, completed, sRank) in GameBridge.ArcadeResults(gameId))
@@ -339,6 +386,7 @@ internal static class ArchipelagoController
             }
         }
         SendLocations(ids);
+        if (Slot.IsStory) SendTutorialCheckpoints();
         CheckGoal();
     }
 

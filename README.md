@@ -12,10 +12,13 @@ The mod talks to the Archipelago server itself, so there is no separate client t
 The randomizer has two modes, picked in the player's YAML.
 
 - **Story mode**: chapters open one at a time in story order (Tutorial, Paradise, Island, Volcano, Industry, Tower)
-  through *Progressive Chapter* items. The Lost Chapter is opened by a *Lost Chapter Key*. Clearing story levels sends
-  checks, and S-ranking those songs on the Playlist screen sends more. Beat *Till It's Over* to win.
+  through *Progressive Chapter* items. The Lost Chapter is optional (off by default) and opened by a *Lost Chapter
+  Key*. Clearing story levels sends checks, as do the tutorial's 9 checkpoint triangles and S-ranking story songs on
+  the Playlist screen. Beat *Till It's Over* to win.
 - **Playlist mode**: you start with a few songs on the Playlist screen and every other song is an item. Clears and
   S Ranks are checks. Collect enough *Beat Shards* to open the goal song, then clear it to win.
+
+In both modes, *Dash* can be shuffled into the multiworld (Start With Dash off): the hero can't dash until it arrives.
 
 While connected, the game plays on a separate save for that slot (`BepInEx\config\JSABArchipelago\saves`). **The
 game's own save is never written**, so your normal progress is untouched. Settings (volume, controls, display) carry
@@ -81,6 +84,10 @@ The game is a Unity 2020.3 IL2CPP build. Notes for anyone extending the mod:
 - Story levels are blocked at `LogicEnterSong.onAction`, before the game runs any of the node's enter logic, with
   `UI_Map.toIngame` as a backstop. In-map cutscene nodes (for example Paradise's fake credits) are not levels and are
   not blocked.
+- Tutorial checkpoints come from `ActorTutorialLevelLogic.playScene(n)`: collecting the Nth triangle starts scene N-1
+  (9 scenes, 0-8); the triangle after scene 8 ends the level. Scene 5 is the wall you must dash through.
+- `HeroDashComponent.canDash` and `inputForDash` are inlined on the game's own path; Dash is refused in
+  `HeroDashComponent.startDash` and `HeroInputLocal.isDashingInput`.
 
 ## Debugging
 

@@ -39,8 +39,17 @@ internal sealed class SlotData
     public long ItemLostChapterKey;
     public long ItemBeatShard;
     public long ItemBeatPoints;
+    public long ItemDash;
     public long ItemSongBase;
     public uint BeatPointsPerItem;
+
+    public bool StartWithDash = true;
+    /// <summary>How many tutorial triangles are checks (0 when Tutorial Checkpoints is off).</summary>
+    public int TutorialCheckpoints;
+    public long TutorialCheckpointBase;
+    public string TutorialSong = "tuto_0";
+    /// <summary>Songs the game always plays on Normal, so the minimum difficulty doesn't apply to them.</summary>
+    public HashSet<string> DifficultyExempt = new();
 
     /// <summary>Song unlock item id to the game's checkpoint id.</summary>
     public Dictionary<long, string> SongByItemId = new();
@@ -71,8 +80,14 @@ internal sealed class SlotData
             ItemLostChapterKey = (long?)json["item_ids"]?["lost_chapter_key"] ?? 2,
             ItemBeatShard = (long?)json["item_ids"]?["beat_shard"] ?? 3,
             ItemBeatPoints = (long?)json["item_ids"]?["beat_points"] ?? 4,
+            ItemDash = (long?)json["item_ids"]?["dash"] ?? 5,
             ItemSongBase = (long?)json["item_ids"]?["song_base"] ?? 100,
             BeatPointsPerItem = (uint?)json["beat_points_per_item"] ?? 100,
+            StartWithDash = (bool?)json["start_with_dash"] ?? true,
+            TutorialCheckpoints = (int?)json["tutorial_checkpoints"] ?? 0,
+            TutorialCheckpointBase = (long?)json["tutorial_checkpoint_location_base"] ?? 3000,
+            TutorialSong = (string?)json["tutorial_song"] ?? "tuto_0",
+            DifficultyExempt = new HashSet<string>(json["difficulty_exempt"]?.ToObject<List<string>>() ?? new()),
         };
         data.SongByItemId = data.SongNumbers.ToDictionary(pair => data.ItemSongBase + pair.Value, pair => pair.Key);
         return data;

@@ -142,6 +142,46 @@ internal static class Patches
         }
     }
 
+    // ---- tutorial checkpoints: each triangle collected in the tutorial moves it to the next scene ------------------
+
+    [HarmonyPatch(typeof(ActorTutorialLevelLogic), nameof(ActorTutorialLevelLogic.playScene)), HarmonyPrefix]
+    private static void TutorialScene(int numTriangleCollected) =>
+        Guard(() => ArchipelagoController.OnTutorialScene(numTriangleCollected), "TutorialScene");
+
+    // ---- Dash item: without it, the hero can't dash -----------------------------------------------------------------
+
+    [HarmonyPatch(typeof(HeroDashComponent), nameof(HeroDashComponent.canDash)), HarmonyPostfix]
+    private static void CanDash(ref bool __result)
+    {
+        if (__result && !ArchipelagoController.MayDash) __result = false;
+    }
+
+    [HarmonyPatch(typeof(HeroDashComponent), nameof(HeroDashComponent.inputForDash)), HarmonyPostfix]
+    private static void DashInput(ref bool __result)
+    {
+        if (!__result || ArchipelagoController.MayDash) return;
+        __result = false;
+        ArchipelagoController.OnDashBlocked();
+    }
+
+    // canDash and inputForDash are small enough that the game's own calls can be inlined past the hooks above, so
+    // the dash is also refused where it starts and where the button is read.
+    [HarmonyPatch(typeof(HeroDashComponent), nameof(HeroDashComponent.startDash)), HarmonyPrefix]
+    private static bool StartDash()
+    {
+        if (ArchipelagoController.MayDash) return true;
+        ArchipelagoController.OnDashBlocked();
+        return false;
+    }
+
+    [HarmonyPatch(typeof(HeroInputLocal), nameof(HeroInputLocal.isDashingInput)), HarmonyPostfix]
+    private static void DashButton(ref bool __result)
+    {
+        if (!__result || ArchipelagoController.MayDash) return;
+        __result = false;
+        ArchipelagoController.OnDashBlocked();
+    }
+
     // ---- testing -----------------------------------------------------------------------------------------------------
 
     [HarmonyPatch(typeof(HeroCooldown), nameof(HeroCooldown.isInvincible)), HarmonyPostfix]

@@ -75,6 +75,7 @@ public class Dumper : MonoBehaviour
         if (_elapsed < 8f) return;
         _done = true;
         DumpPlugin.Instance.PatchTraces();
+        Disassemble.Log();
         try
         {
             var path = Path.Combine(Paths.BepInExRootPath, "jsab_data_dump.json");
@@ -149,6 +150,16 @@ public class Dumper : MonoBehaviour
             });
         }
         result["songs"] = songs;
+
+        // The tutorial level (Corrupted) is played in scenes, one per triangle collected; the last scene is
+        // LogicTriangleToCollectTutorial.reachLastScene: numTriangleCollected >= startLoops.Length - 1.
+        result["tutorialSceneLoops"] = Try(() =>
+        {
+            var loops = LogicMusicTutorial.startLoops;
+            var values = new List<int>();
+            for (int i = 0; i < loops.Length; i++) values.Add(loops[i]);
+            return values;
+        });
 
         result["allExtra"] = Ids(ModelStoryCheckpointEnum.ALL_EXTRA);
         result["allMulti"] = Ids(ModelStoryCheckpointEnum.ALL_MULTI);

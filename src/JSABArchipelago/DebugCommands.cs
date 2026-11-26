@@ -42,6 +42,14 @@ internal static class DebugCommands
             case "state":
                 LogState();
                 break;
+            case "tutorial-scene":
+                // As if the tutorial had just started this scene (0-8).
+                ArchipelagoController.OnTutorialScene(int.Parse(args[1]));
+                break;
+            case "force-dash":
+                // Pretend Dash has (on) or hasn't (off) been received, or clear the override (auto).
+                ArchipelagoController.ForcedDash = args[1] switch { "on" => true, "off" => false, _ => null };
+                break;
             case "force-chapters":
                 // Pretend to have this many Progressive Chapters (or "off"), to test the chapter locks.
                 ArchipelagoController.ForcedChapters = args[1] == "off" ? null : int.Parse(args[1]);
@@ -77,6 +85,9 @@ internal static class DebugCommands
                         $"status='{ArchipelagoController.Status}' difficulty={GameBridge.CurrentDifficulty}");
         if (slot != null)
         {
+            text.AppendLine($"dash={ArchipelagoController.HasDash} startWithDash={slot.StartWithDash} " +
+                            $"tutorialCheckpoints={ArchipelagoController.Save?.TutorialCheckpointsReached}" +
+                            $"/{slot.TutorialCheckpoints}");
             text.AppendLine($"mode={slot.Mode} chapters={ArchipelagoController.ProgressiveChapters} " +
                             $"lostKey={ArchipelagoController.HasLostChapterKey} shards={ArchipelagoController.BeatShards}" +
                             $"/{slot.BeatShardsRequired} goal={slot.GoalSong} goalOpen={ArchipelagoController.GoalSongOpen}");

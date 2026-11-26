@@ -25,6 +25,9 @@ internal sealed class ApSave
     /// </summary>
     public System.Collections.Generic.HashSet<string> StoryClears { get; set; } = new();
 
+    /// <summary>The most tutorial triangles collected in one run, so tutorial checkpoints can be resent.</summary>
+    public int TutorialCheckpointsReached { get; set; }
+
     /// <summary>The game's own save data (MetaGameProgress.Save()), or null for a slot that hasn't been played yet.</summary>
     public string? Game { get; set; }
 
