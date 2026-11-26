@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Developer tool, not part of the release. Drop the built DLL into BepInEx\plugins, start the game, and it writes
+    BepInEx\jsab_data_dump.json with every song, chapter, rank and difficulty the game defines.
+    The Archipelago world's song table (worlds/jsab/data.py) was generated from this dump.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>JSABDataDump</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <Import Project="..\..\GameReferences.props" />
+</Project>

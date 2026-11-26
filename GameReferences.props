@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    References to BepInEx and the game's generated interop assemblies.
+    BepInEx creates BepInEx\interop the first time the game is launched with BepInEx installed.
+    Point JSABGameDir at your install with: dotnet build -p:JSABGameDir="X:\path\to\Just Shapes & Beats"
+    or put it in GamePath.user.props (not committed), for example:
+      <Project><PropertyGroup><JSABGameDir>X:\path\to\Just Shapes &amp; Beats</JSABGameDir></PropertyGroup></Project>
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)GamePath.user.props" Condition="Exists('$(MSBuildThisFileDirectory)GamePath.user.props')" />
+  <PropertyGroup>
+    <JSABGameDir Condition="'$(JSABGameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Just Shapes &amp; Beats</JSABGameDir>
+    <BepInExDir>$(JSABGameDir)\BepInEx</BepInExDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(BepInExDir)\core\BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\core\BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\core\BepInEx.Unity.Common.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\core\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\core\Il2CppInterop.Common.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\core\0Harmony.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\Il2Cppmscorlib.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\Il2CppSystem.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\UnityEngine.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\UnityEngine.TextRenderingModule.dll" Private="false" />
+  </ItemGroup>
+</Project>

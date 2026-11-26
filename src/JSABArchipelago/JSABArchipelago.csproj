@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>JSABArchipelago</AssemblyName>
+    <RootNamespace>JSABArchipelago</RootNamespace>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Copy MultiClient.Net and Newtonsoft.Json next to the plugin; BepInEx does not ship them. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Set to true (dotnet build -p:DeployToGame=true) to copy the build into the game's BepInEx\plugins folder. -->
+    <DeployToGame Condition="'$(DeployToGame)' == ''">false</DeployToGame>
+  </PropertyGroup>
+
+  <Import Project="..\..\GameReferences.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Archipelago.MultiClient.Net" Version="6.7.1" />
+  </ItemGroup>
+
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
+    <ItemGroup>
+      <PluginFiles Include="$(OutDir)JSABArchipelago.dll;$(OutDir)Archipelago.MultiClient.Net.dll;$(OutDir)Newtonsoft.Json.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(BepInExDir)\plugins\JSABArchipelago" />
+  </Target>
+</Project>
