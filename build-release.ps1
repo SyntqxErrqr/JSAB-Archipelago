@@ -17,17 +17,26 @@ dotnet build @buildArgs
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 $out = Join-Path $root "src\JSABArchipelago\bin\Release\net6.0"
-$stage = Join-Path $root "dist\stage"
-$plugin = Join-Path $stage "BepInEx\plugins\JSABArchipelago"
-Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force $plugin | Out-Null
-foreach ($file in "JSABArchipelago.dll", "Archipelago.MultiClient.Net.dll", "Newtonsoft.Json.dll") {
-    Copy-Item (Join-Path $out $file) $plugin
-}
-Copy-Item (Join-Path $root "LICENSE") $plugin
+$sources = @("JSABArchipelago.dll", "Archipelago.MultiClient.Net.dll", "Newtonsoft.Json.dll" | ForEach-Object { Join-Path $out $_ })
+$sources += Join-Path $root "LICENSE"
 
-$zip = Join-Path $root "dist\JSABArchipelago-$version.zip"
+$dist = Join-Path $root "dist"
+New-Item -ItemType Directory -Force $dist | Out-Null
+$zip = Join-Path $dist "JSABArchipelago-$version.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip
-Remove-Item -Recurse -Force $stage
+
+# Written entry by entry: Compress-Archive in Windows PowerShell stores backslash paths, which some extractors unpack
+# as one file named "BepInEx\plugins\..." instead of folders.
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($source in $sources) {
+        $entry = "BepInEx/plugins/JSABArchipelago/" + (Split-Path $source -Leaf)
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive, $source, $entry, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+}
+finally {
+    $archive.Dispose()
+}
 Write-Host "Wrote $zip"
