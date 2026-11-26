@@ -3,7 +3,8 @@
 A [BepInEx 6](https://github.com/BepInEx/BepInEx) mod that connects
 [Just Shapes & Beats](https://store.steampowered.com/app/531510/) to an [Archipelago](https://archipelago.gg)
 multiworld. The matching apworld (game definition, options and logic) lives in the
-[SyntqxErrqr/Archipelago](https://github.com/SyntqxErrqr/Archipelago) fork, under `worlds/jsab`.
+[SyntqxErrqr/Archipelago](https://github.com/SyntqxErrqr/Archipelago/tree/just-shapes-and-beats/worlds/jsab) fork, on
+the `just-shapes-and-beats` branch under `worlds/jsab`.
 
 The mod talks to the Archipelago server itself, so there is no separate client to run.
 
