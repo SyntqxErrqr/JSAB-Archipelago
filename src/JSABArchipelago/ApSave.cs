@@ -25,6 +25,19 @@ internal sealed class ApSave
     /// </summary>
     public System.Collections.Generic.HashSet<string> StoryClears { get; set; } = new();
 
+    /// <summary>
+    /// Every song cleared in the story on any difficulty, by the song played (not the map spot). These open on the
+    /// Playlist screen.
+    /// </summary>
+    public System.Collections.Generic.HashSet<string> StorySongsBeaten { get; set; } = new();
+
+    /// <summary>
+    /// While a level with a shuffled song is being played: the map spot entered and the song playing. The game records
+    /// the song as the level entered, so if it closes mid-level this puts the player back at the spot next time.
+    /// </summary>
+    public string? ShuffledSpotInProgress { get; set; }
+    public string? ShuffledSongInProgress { get; set; }
+
     /// <summary>The most tutorial triangles collected in one run, so tutorial checkpoints can be resent.</summary>
     public int TutorialCheckpointsReached { get; set; }
 

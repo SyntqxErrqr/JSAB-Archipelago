@@ -48,6 +48,26 @@ internal static class Patches
         return ArchipelagoController.TitleMayContinue;
     }
 
+    // ---- menu music: loading a slot on the title screen must not start a second track -------------------------------
+
+    [HarmonyPatch(typeof(UI_MainMenuBase), nameof(UI_MainMenuBase.getMusicToPlay)), HarmonyPostfix]
+    private static void MenuMusic(ref ModelStoryCheckpoint __result)
+    {
+        try
+        {
+            var keep = ArchipelagoController.MenuMusic(__result);
+            if (keep != null) __result = keep;
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError("MenuMusic: " + e);
+        }
+    }
+
+    [HarmonyPatch(typeof(LogicMap_Music), nameof(LogicMap_Music.destroy)), HarmonyPrefix]
+    private static void MusicDestroyed(LogicMap_Music __instance) =>
+        Guard(() => ArchipelagoController.OnMusicDestroyed(GameBridge.IdOf(__instance.modelSong)), "MusicDestroyed");
+
     // ---- checks -----------------------------------------------------------------------------------------------------
 
     // The end of a level: the player has collected the last triangle. LogicEndLevel is the story version; each mode
@@ -55,10 +75,28 @@ internal static class Patches
     // MetaSongProgress.complete is not hooked: jumping to a chapter from the chapter select calls it for every earlier
     // level, which would count levels that weren't played.
 
+    // Before the game records a story clear: after a shuffled song, it has to record it for the map spot the player
+    // entered, and take them back there. __state carries the song that was actually played to the postfix.
+    [HarmonyPatch(typeof(LogicEndLevel), nameof(LogicEndLevel.onCompleteLastCheckpoint)), HarmonyPrefix]
+    private static void LevelEnding(LogicEndLevel __instance, out string? __state)
+    {
+        __state = null;
+        try
+        {
+            var level = __instance.actorNormalLevel;
+            __state = GameBridge.IdOf(level?.modelSong);
+            if (level != null) ArchipelagoController.BeforeStoryLevelEnd(level);
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError("LevelEnding: " + e);
+        }
+    }
+
     [HarmonyPatch(typeof(LogicEndLevel), nameof(LogicEndLevel.onCompleteLastCheckpoint)), HarmonyPostfix]
-    private static void LevelEnd(LogicEndLevel __instance) =>
+    private static void LevelEnd(LogicEndLevel __instance, string? __state) =>
         Guard(() => ArchipelagoController.OnLevelEnd(__instance.GetIl2CppType().Name,
-            GameBridge.IdOf(__instance.actorNormalLevel?.modelSong)), "LevelEnd");
+            __state ?? GameBridge.IdOf(__instance.actorNormalLevel?.modelSong)), "LevelEnd");
 
     [HarmonyPatch(typeof(LogicArcadeEndLevel), nameof(LogicArcadeEndLevel.onCompleteLastCheckpoint)), HarmonyPostfix]
     private static void PlaylistLevelEnd(LogicArcadeEndLevel __instance) =>
@@ -70,28 +108,25 @@ internal static class Patches
     private static void PlaylistComplete(MetaArcadeSongProgress __instance, ModelRank pModelCompletion) =>
         Guard(() => ArchipelagoController.OnPlaylistCompleted(__instance, pModelCompletion), "PlaylistComplete");
 
-    // ---- Playlist mode: songs are unlocked by items ------------------------------------------------------------------
-
-    private static bool ControlsPlaylist =>
-        ArchipelagoController.Active && ArchipelagoController.Slot is { IsStory: false };
+    // ---- Playlist screen: songs open by items (Playlist mode) or by story clears (Story mode) -------------------------
 
     [HarmonyPatch(typeof(MetaArcadeSongProgress), nameof(MetaArcadeSongProgress.isUnlocked)), HarmonyPostfix]
     private static void SongUnlocked(MetaArcadeSongProgress __instance, ref bool __result)
     {
-        if (!ControlsPlaylist) return;
+        if (!ArchipelagoController.Active) return;
         var gameId = GameBridge.IdOf(__instance.modelSong);
-        if (gameId != null) __result = ArchipelagoController.IsPlaylistSongUnlocked(gameId);
+        if (gameId != null && ArchipelagoController.IsPlaylistSongOpen(gameId) is bool open) __result = open;
     }
 
     [HarmonyPatch(typeof(MetaArcadeSongProgress), nameof(MetaArcadeSongProgress.isrequirementSatisfied)), HarmonyPostfix]
     private static void SongRequirement(MetaArcadeSongProgress __instance, ref bool __result)
     {
-        if (!ControlsPlaylist) return;
+        if (!ArchipelagoController.Active) return;
         var gameId = GameBridge.IdOf(__instance.modelSong);
-        if (gameId != null) __result = ArchipelagoController.IsPlaylistSongUnlocked(gameId);
+        if (gameId != null && ArchipelagoController.IsPlaylistSongOpen(gameId) is bool open) __result = open;
     }
 
-    // ---- Story mode: chapters are unlocked by items ------------------------------------------------------------------
+    // ---- Story mode: each level spot opens with an item, and may play a shuffled song --------------------------------
 
     [HarmonyPatch(typeof(LogicEnterSong), nameof(LogicEnterSong.onAction)), HarmonyPrefix]
     private static bool EnterStoryNode(LogicEnterSong __instance)
@@ -109,16 +144,26 @@ internal static class Patches
         }
     }
 
+    private static bool _enteringShuffledLevel;
+
     // Not every map node is a LogicEnterSong (boats, helicopters and cutscenes have their own), but entering any
-    // level from the map goes through here.
+    // level from the map goes through here. With Shuffle Story Songs, the spot's level is swapped for the song the
+    // spot plays in this seed by calling this again with that song's progress.
     [HarmonyPatch(typeof(UI_Map), nameof(UI_Map.toIngame)), HarmonyPrefix]
-    private static bool MapToLevel(MetaSongProgress metaLevel)
+    private static bool MapToLevel(UI_Map __instance, MetaSongProgress metaLevel)
     {
+        if (_enteringShuffledLevel) return true;
         try
         {
             var gameId = GameBridge.IdOf(metaLevel?.modelSong);
             Plugin.Logger.LogInfo($"Story node action: UI_Map.toIngame {gameId}");
-            return ArchipelagoController.MayEnterStoryNode(gameId);
+            if (!ArchipelagoController.MayEnterStoryNode(gameId)) return false;
+            var shuffled = metaLevel == null ? null : ArchipelagoController.SongToPlayAt(metaLevel);
+            if (shuffled == null) return true;
+            _enteringShuffledLevel = true;
+            try { __instance.toIngame(shuffled); }
+            finally { _enteringShuffledLevel = false; }
+            return false;
         }
         catch (Exception e)
         {
@@ -126,6 +171,45 @@ internal static class Patches
             return true;
         }
     }
+
+    // Leaving a level from the pause menu: to the map, or to the title (Story then continues from the level entered).
+    [HarmonyPatch(typeof(UI_PauseNew), nameof(UI_PauseNew.toMap)), HarmonyPrefix]
+    private static void PauseToMap(UI_PauseNew __instance) =>
+        Guard(() => ArchipelagoController.OnLeavingStoryLevel(__instance), "PauseToMap");
+
+    [HarmonyPatch(typeof(UI_PauseNew), nameof(UI_PauseNew.leaveStory)), HarmonyPrefix]
+    private static void PauseLeaveStory(UI_PauseNew __instance) =>
+        Guard(() => ArchipelagoController.OnLeavingStoryLevel(__instance), "PauseLeaveStory");
+
+    [HarmonyPatch(typeof(UI_PauseNew), nameof(UI_PauseNew.leaveToTitleScreen)), HarmonyPrefix]
+    private static void PauseLeaveToTitle(UI_PauseNew __instance) =>
+        Guard(() => ArchipelagoController.OnLeavingStoryLevel(__instance), "PauseLeaveToTitle");
+
+    [HarmonyPatch(typeof(UI_PauseNew), nameof(UI_PauseNew.toTitleScreen)), HarmonyPrefix]
+    private static void PauseToTitle(UI_PauseNew __instance) =>
+        Guard(() => ArchipelagoController.OnLeavingStoryLevel(__instance), "PauseToTitle");
+
+    // The spot's name and artist on the map show the song it plays in this seed.
+    private static MetaSongProgress? _detailsSpotLevel;
+
+    [HarmonyPatch(typeof(LogicEnterSong), nameof(LogicEnterSong.showLevelDetails)), HarmonyPrefix]
+    private static void ShowDetails(LogicEnterSong __instance) => Guard(() =>
+    {
+        _detailsSpotLevel = null;
+        var song = ArchipelagoController.ShuffledSongAt(GameBridge.IdOf(__instance.metaLevelProgress?.modelSong));
+        var level = song == null ? null : GameBridge.StoryLevel(song);
+        if (level == null) return;
+        _detailsSpotLevel = __instance.metaLevelProgress;
+        __instance.metaLevelProgress = level;
+    }, "ShowDetails");
+
+    [HarmonyPatch(typeof(LogicEnterSong), nameof(LogicEnterSong.showLevelDetails)), HarmonyPostfix]
+    private static void ShowDetailsDone(LogicEnterSong __instance) => Guard(() =>
+    {
+        if (_detailsSpotLevel == null) return;
+        __instance.metaLevelProgress = _detailsSpotLevel;
+        _detailsSpotLevel = null;
+    }, "ShowDetailsDone");
 
     [HarmonyPatch(typeof(UI_MainMenu_StorySelect), nameof(UI_MainMenu_StorySelect.StartFromSelectedChapter)), HarmonyPrefix]
     private static bool StartChapter(UI_MainMenu_StorySelect __instance)

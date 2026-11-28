@@ -12,10 +12,11 @@ The mod talks to the Archipelago server itself, so there is no separate client t
 
 The randomizer has two modes, picked in the player's YAML.
 
-- **Story mode**: chapters open one at a time in story order (Tutorial, Paradise, Island, Volcano, Industry, Tower)
-  through *Progressive Chapter* items. The Lost Chapter is optional (off by default) and opened by a *Lost Chapter
-  Key*. Clearing story levels sends checks, as do the tutorial's 9 checkpoint triangles and S-ranking story songs on
-  the Playlist screen. Beat *Till It's Over* to win.
+- **Story mode**: every level on the story map is locked until a *Progressive Level* item opens it, one at a time in
+  story order. The Lost Chapter is optional (off by default) and its levels open with *Progressive Lost Chapter Level*
+  items. With *Shuffle Story Songs*, each map spot plays a random story song instead of its own. Clearing story levels
+  sends checks, as do the tutorial's 9 checkpoint triangles and S-ranking cleared story songs on the Playlist screen.
+  Beat *Till It's Over* to win.
 - **Playlist mode**: you start with a few songs on the Playlist screen and every other song is an item. Clears and
   S Ranks are checks. Collect enough *Beat Shards* to open the goal song, then clear it to win.
 
@@ -85,6 +86,15 @@ The game is a Unity 2020.3 IL2CPP build. Notes for anyone extending the mod:
 - Story levels are blocked at `LogicEnterSong.onAction`, before the game runs any of the node's enter logic, with
   `UI_Map.toIngame` as a backstop. In-map cutscene nodes (for example Paradise's fake credits) are not levels and are
   not blocked.
+- Shuffled story songs: `UI_Map.toIngame` is called again with the other song's `MetaSongProgress`, so the level plays
+  exactly as it does in its own chapter. The game remembers that song in several places (the level, its progress, its
+  `MetaGameResult`, the `NormalLevelScene`, the pause menu); just before the level ends
+  (`LogicEndLevel.onCompleteLastCheckpoint`) or is left from the pause menu, the mod points them all at the map spot
+  the player entered. That is what makes the game clear that spot and return the player there rather than to the
+  played song's own chapter. `LogicEnterSong.showLevelDetails` shows the played song's name on the map.
+- The menu music comes from the save's progress (`UI_MainMenuBase.getMusicToPlay`). The title screen starts it for the
+  normal save, so after a slot's save is loaded the mod keeps returning that track until it stops, or the main menu
+  starts a second one on top.
 - Tutorial checkpoints come from `ActorTutorialLevelLogic.playScene(n)`: collecting the Nth triangle starts scene N-1
   (9 scenes, 0-8); the triangle after scene 8 ends the level. Scene 5 is the wall you must dash through.
 - `HeroDashComponent.canDash` and `inputForDash` are inlined on the game's own path; Dash is refused in
@@ -93,8 +103,9 @@ The game is a Unity 2020.3 IL2CPP build. Notes for anyone extending the mod:
 ## Debugging
 
 `BepInEx\LogOutput.log` has everything the mod does. In the mod's config, `[Debug] Invincible` makes the player
-impossible to hit (levels play through on their own) and `[Debug] Commands` enables the command file described in
-`DebugCommands.cs`. Both are for testing the mod only.
+impossible to hit (levels play through on their own), `[Debug] Commands` enables the command file described in
+`DebugCommands.cs`, and `[Debug] Trace` logs the game's map, level and music calls (`TracePatches.cs`). All three are
+for testing the mod only.
 
 ## License
 

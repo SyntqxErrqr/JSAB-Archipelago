@@ -23,7 +23,18 @@ internal sealed class SlotData
     public List<string> ChapterNames = new();
     public int LostChapterIndex;
     public string Finale = "";
+    /// <summary>The Lost Chapter's last level spot.</summary>
     public string LostChapterBoss = "";
+
+    /// <summary>
+    /// Story level spots (map nodes that start a level) in map order, by the id of the song the game normally plays
+    /// there. Main story spot N opens with N Progressive Levels (the first is open from the start); Lost Chapter spot
+    /// N with N+1 Progressive Lost Chapter Levels.
+    /// </summary>
+    public List<string> MainStorySpots = new();
+    public List<string> LostChapterSpots = new();
+    /// <summary>The song each spot plays in this seed. Only differs from the spot with Shuffle Story Songs.</summary>
+    public Dictionary<string, string> SpotSongs = new();
 
     public HashSet<string> SongPool = new();
     public HashSet<string> StartingSongs = new();
@@ -35,8 +46,8 @@ internal sealed class SlotData
     public long ClearBase;
     public long SRankBase;
 
-    public long ItemProgressiveChapter;
-    public long ItemLostChapterKey;
+    public long ItemProgressiveLevel;
+    public long ItemProgressiveLostLevel;
     public long ItemBeatShard;
     public long ItemBeatPoints;
     public long ItemDash;
@@ -68,6 +79,9 @@ internal sealed class SlotData
             LostChapterIndex = (int?)json["lost_chapter_index"] ?? 6,
             Finale = (string?)json["finale"] ?? "towerBoss_3",
             LostChapterBoss = (string?)json["lost_chapter_boss"] ?? "lost_chapter_boss",
+            MainStorySpots = json["main_story_spots"]?.ToObject<List<string>>() ?? new(),
+            LostChapterSpots = json["lost_chapter_spots"]?.ToObject<List<string>>() ?? new(),
+            SpotSongs = json["spot_songs"]?.ToObject<Dictionary<string, string>>() ?? new(),
             SongPool = new HashSet<string>(json["song_pool"]?.ToObject<List<string>>() ?? new()),
             StartingSongs = new HashSet<string>(json["starting_songs"]?.ToObject<List<string>>() ?? new()),
             GoalSong = (string?)json["goal_song"],
@@ -76,8 +90,8 @@ internal sealed class SlotData
             SongNumbers = json["songs"]?.ToObject<Dictionary<string, int>>() ?? new(),
             ClearBase = (long?)json["location_id_bases"]?["clear"] ?? 1000,
             SRankBase = (long?)json["location_id_bases"]?["s_rank"] ?? 2000,
-            ItemProgressiveChapter = (long?)json["item_ids"]?["progressive_chapter"] ?? 1,
-            ItemLostChapterKey = (long?)json["item_ids"]?["lost_chapter_key"] ?? 2,
+            ItemProgressiveLevel = (long?)json["item_ids"]?["progressive_level"] ?? 6,
+            ItemProgressiveLostLevel = (long?)json["item_ids"]?["progressive_lost_level"] ?? 7,
             ItemBeatShard = (long?)json["item_ids"]?["beat_shard"] ?? 3,
             ItemBeatPoints = (long?)json["item_ids"]?["beat_points"] ?? 4,
             ItemDash = (long?)json["item_ids"]?["dash"] ?? 5,
@@ -98,6 +112,19 @@ internal sealed class SlotData
 
     public long? SRankLocation(string gameId) =>
         SongNumbers.TryGetValue(gameId, out var number) ? SRankBase + number : null;
+
+    /// <summary>
+    /// Story slots from apworld 0.1.x opened whole chapters with Progressive Chapter items and carry no level spots.
+    /// </summary>
+    public bool IsOldStorySlot => IsStory && MainStorySpots.Count == 0;
+
+    public bool SongsShuffled => SpotSongs.Any(pair => pair.Key != pair.Value);
+
+    /// <summary>The song played at a story spot in this seed.</summary>
+    public string SongAt(string spot) => SpotSongs.TryGetValue(spot, out var song) ? song : spot;
+
+    /// <summary>Whether a song is played somewhere in this seed's story.</summary>
+    public bool IsStorySongInSeed(string gameId) => SpotSongs.ContainsValue(gameId);
 
     /// <summary>Index of the chapter a story map node belongs to, or -1 if it is not part of any chapter.</summary>
     public int ChapterOf(string nodeId)

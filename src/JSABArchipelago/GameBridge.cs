@@ -25,13 +25,71 @@ internal static class GameBridge
         }
     }
 
-    public static bool IsStoryCompleted(string gameId)
+    /// <summary>The story progress of a map spot (or of the song the game normally plays there).</summary>
+    public static MetaSongProgress? StoryLevel(string gameId)
     {
         var progress = Progress;
         var song = Song(gameId);
-        if (progress == null || song == null) return false;
+        if (progress == null || song == null) return null;
         var level = progress.metaStoryProgress.metaSongGroup.getMetaLevelFromOnModel(song);
-        return level != null && level.isCompleted();
+        return level == null || level.isNull() ? null : level;
+    }
+
+    public static bool IsStoryCompleted(string gameId) => StoryLevel(gameId)?.isCompleted() ?? false;
+
+    /// <summary>Point a level's result (and the story's last result, if it's another object) at a story progress.</summary>
+    public static void SetResultLevel(MetaGameResult? result, MetaSongProgress level)
+    {
+        if (result != null && !result.isNull()) result.metaLevelProgress = level;
+        var last = Progress?.metaStoryProgress.metaResultLastGame;
+        if (last != null && !last.isNull() && (result == null || last.Pointer != result.Pointer))
+            last.metaLevelProgress = level;
+    }
+
+    /// <summary>Set the song of the level scene being played, which decides where the game goes when it ends.</summary>
+    public static void SetLevelSceneSong(ModelStoryCheckpoint song)
+    {
+        var scene = GameScene.instance?.TryCast<NormalLevelScene>();
+        if (scene != null) scene.modelSong = song;
+    }
+
+    /// <summary>Make a map spot the level being played, as far as the story progress is concerned.</summary>
+    public static void EnterSpot(string spotId)
+    {
+        var story = Progress?.metaStoryProgress;
+        var spot = StoryLevel(spotId);
+        if (story == null || spot == null) return;
+        story.lastEnteredSong = spot.modelSong;
+        story.metaCurrentLevel = spot;
+    }
+
+    /// <summary>
+    /// A shuffled level ended: the game cleared <paramref name="fromSong"/>'s own map spot. Put that spot back the way
+    /// it was (<paramref name="fromSongBefore"/>, from MetaSongProgress.encode), clear <paramref name="toSpot"/>, the
+    /// spot the player entered, instead, and make it the last level entered and completed.
+    /// </summary>
+    public static void MoveStoryClear(string fromSong, string toSpot, Il2CppSystem.Collections.Hashtable? fromSongBefore)
+    {
+        var story = Progress?.metaStoryProgress;
+        var played = StoryLevel(fromSong);
+        var spot = StoryLevel(toSpot);
+        if (story == null || played == null || spot == null) return;
+        Plugin.Logger.LogInfo($"Moving the clear of {fromSong} to spot {toSpot}: {DescribeStory()}");
+        int deaths = played.nbDeaths;
+        if (fromSongBefore != null) played.decode(fromSongBefore);
+        if (!spot.isCompleted()) spot.complete(deaths);
+        story.lastCompletedSong = spot.modelSong;
+        story.lastEnteredSong = spot.modelSong;
+        story.metaCurrentLevel = spot;
+        Plugin.Logger.LogInfo($"Moved: {DescribeStory()} ({fromSong} completed={played.isCompleted()})");
+    }
+
+    public static string DescribeStory()
+    {
+        var story = Progress?.metaStoryProgress;
+        if (story == null) return "(no progress)";
+        return $"lastEntered={IdOf(story.lastEnteredSong)} lastCompleted={IdOf(story.lastCompletedSong)} " +
+               $"current={IdOf(story.metaCurrentLevel?.modelSong)}";
     }
 
     public static bool HasCompletedStoryMode => Progress?.metaStoryProgress.hasCompletedStoryMode ?? false;

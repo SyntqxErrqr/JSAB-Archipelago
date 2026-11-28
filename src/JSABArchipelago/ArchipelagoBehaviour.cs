@@ -44,6 +44,7 @@ public class ArchipelagoBehaviour : MonoBehaviour
             {
                 new Harmony(Plugin.Guid).PatchAll(typeof(Patches));
                 Plugin.Logger.LogInfo("Game hooks applied");
+                if (Plugin.Instance.DebugTrace.Value) TracePatches.Apply();
             }
             catch (Exception e)
             {
@@ -254,15 +255,15 @@ public class ArchipelagoBehaviour : MonoBehaviour
         var slot = ArchipelagoController.Slot!;
         if (slot.IsStory)
         {
-            int open = ArchipelagoController.ProgressiveChapters;
+            int open = Math.Min(ArchipelagoController.ProgressiveLevels + 1, slot.MainStorySpots.Count);
             GUI.Label(new Rect(x, y, width, row),
-                $"Chapters open: up to <b>{slot.ChapterName(Math.Min(open, slot.LostChapterIndex - 1))}</b> ({open}/5)",
-                _label);
+                $"Story levels open: <b>{open}</b> / {slot.MainStorySpots.Count}" +
+                (slot.SongsShuffled ? " (songs shuffled)" : ""), _label);
             y += row;
             if (slot.LostChapter != SlotData.LostChapterExclude)
                 GUI.Label(new Rect(x, y, width, row),
-                    $"Lost Chapter: {(ArchipelagoController.HasLostChapterKey ? "<color=#7f7>open</color>" : "locked")}",
-                    _label);
+                    $"Lost Chapter levels open: <b>{ArchipelagoController.ProgressiveLostLevels}</b> / " +
+                    $"{slot.LostChapterSpots.Count}", _label);
         }
         else
         {
